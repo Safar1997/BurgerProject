@@ -9,14 +9,16 @@ import axios from "../../axios-orders";
 import Spinner from "../../components/UI/Spinner/Spinner";
 import withErrorHandler from "../../hoc/withErrorHandler/withErrorHandler";
 
-const INGRIDIENT_PRICES = {
-  salad: 0.5,
-  cheese: 0.4,
-  meat: 1.3,
-  bacon: 0.7,
-};
+import { connect } from "react-redux";
+import {
+  addIngridient,
+  removeIngridient,
+  initIngridients,
+  purchaseInit,
+  setAuthRedirectPatch,
+} from "../../store/actions";
 
-class BurgerBulder extends Component {
+export class BurgerBulder extends Component {
   //Можно использовать и этот метод объявления state
   //   constructor(props){
   //     super(props);
@@ -24,22 +26,21 @@ class BurgerBulder extends Component {
   //   }
   //но мы используем более современный подход
   state = {
-    ingridients: null,
-    totalPrice: 4,
-    purchaseble: false, //есть ли ингридиенты
+    // purchaseble: false, //есть ли ингридиенты
     purchasing: false, //если инажата кнопка зказа
-    loading: false,
-    error: false,
+    // loading: false,
+    // error: false,
   }
 
   componentDidMount() {
-    axios.get('https://my-burger-ac9e1-default-rtdb.firebaseio.com/ingridients.json')
-      .then(res => {
-        this.setState({
-          ingridients: res.data,
-        })
-      })
-      .catch(err => {this.setState({error: true})})
+    // axios.get('https://my-burger-ac9e1-default-rtdb.firebaseio.com/ingridients.json')
+    //   .then(res => {
+    //     this.setState({
+    //       ingridients: res.data,
+    //     })
+    //   })
+    //   .catch(err => {this.setState({error: true})})
+    this.props.onInitIngridients();
   }
 
   updatePurchaseState = (ingridients) => {
@@ -52,52 +53,57 @@ class BurgerBulder extends Component {
       return acc + el;
     }, 0);
 
-    this.setState({purchaseble: sum > 0});
+    return sum > 0;
   }
 
-  addIngridientHandler = (type) => {
-    const oldCount = this.state.ingridients[type];
-    const updateCount = oldCount + 1;
+  // addIngridientHandler = (type) => {
+  //   const oldCount = this.state.ingridients[type];
+  //   const updateCount = oldCount + 1;
 
-    const updateIngridients = {...this.state.ingridients};
-    updateIngridients[type] = updateCount;
+  //   const updateIngridients = {...this.state.ingridients};
+  //   updateIngridients[type] = updateCount;
 
-    const priceAddition = INGRIDIENT_PRICES[type];
-    const oldPrice = this.state.totalPrice;
-    const newPrice = priceAddition + oldPrice;
+  //   const priceAddition = INGRIDIENT_PRICES[type];
+  //   const oldPrice = this.state.totalPrice;
+  //   const newPrice = priceAddition + oldPrice;
 
-    this.setState(
-      {totalPrice: newPrice, ingridients: updateIngridients}
-    );
+  //   this.setState(
+  //     {totalPrice: newPrice, ingridients: updateIngridients}
+  //   );
 
-    this.updatePurchaseState(updateIngridients); //передаем измененные ингридиенты
-    //потому что если в самом методе обращатья к стейту, то он может не успеть обновиться
-    //и мы поулчим значения старого стейта
-  }
+  //   this.updatePurchaseState(updateIngridients); //передаем измененные ингридиенты
+  //   //потому что если в самом методе обращатья к стейту, то он может не успеть обновиться
+  //   //и мы поулчим значения старого стейта
+  // }
 
 
-  removeIngridientHandler = (type) => {
-    const oldCount = this.state.ingridients[type];
-    if(oldCount <= 0) return;
+  // removeIngridientHandler = (type) => {
+  //   const oldCount = this.state.ingridients[type];
+  //   if(oldCount <= 0) return;
 
-    const updateCount = oldCount - 1;
+  //   const updateCount = oldCount - 1;
 
-    const updateIngridients = {...this.state.ingridients};
-    updateIngridients[type] = updateCount > 0 ? updateCount : 0;
+  //   const updateIngridients = {...this.state.ingridients};
+  //   updateIngridients[type] = updateCount > 0 ? updateCount : 0;
 
-    const priceDeduction = INGRIDIENT_PRICES[type];
-    const oldPrice = this.state.totalPrice;
-    const newPrice = oldPrice - priceDeduction;
+  //   const priceDeduction = INGRIDIENT_PRICES[type];
+  //   const oldPrice = this.state.totalPrice;
+  //   const newPrice = oldPrice - priceDeduction;
 
-    this.setState(
-        {totalPrice: newPrice, ingridients: updateIngridients}
-    );
+  //   this.setState(
+  //       {totalPrice: newPrice, ingridients: updateIngridients}
+  //   );
 
-    this.updatePurchaseState(updateIngridients);
-  }
+  //   this.updatePurchaseState(updateIngridients);
+  // }
 
   purchaseHandler = () => {
-    this.setState({purchasing: true});
+    if(this.props.isAuth) {
+      this.setState({purchasing: true});
+    } else {
+      this.props.onSetAuthRedirectPath('/checkout');
+      this.props.history.push('/auth');
+    }
   }
 
   purchaseCancelHandler = () => {
@@ -105,63 +111,46 @@ class BurgerBulder extends Component {
   }
 
   purchaseContinueHandler = () => {
-    this.setState({loading: true});
-    // alert('You continiue');
-    const order = {
-      ingridients: this.state.ingridients,
-      price: this.state.totalPrice,
-      customer: {
-        name: 'Safar',
-        adress: {
-          street: 'Test',
-          zipCode: 117570,
-        }
-      }
-    }
-    axios.post('/orders.json', order)
-      .then(res => {
-        this.setState({loading: false, purchasing: false});
-      })
-      .catch(err => {
-        this.setState({loading: false, purchasing: false});
-      });
+    this.props.onInitPurchase();
+    this.props.history.push('/checkout');
   }
 
 
   render() {
     //Прокинем доп инфу, чтобы сделать кнопку disable, если нет игридинетов
-    const disableInfo = {...this.state.ingridients};
+    const disableInfo = {...this.props.ings};
     for(let key in disableInfo) {
       disableInfo[key] = disableInfo[key] <= 0;
     }
 
     let orderSummary = null;
-    let burger = this.state.error ? <p>Error</p> : <Spinner />;
+    let burger = this.props.error ? <p>Error</p> : <Spinner />;
 
-    if(this.state.ingridients) {
+    if(this.props.ings) {
       burger = (
         <Aux>
-          <Burger ingridients={this.state.ingridients} />
+          <Burger ingridients={this.props.ings} />
           <BuildControls
-            ingridientAdded={this.addIngridientHandler}
-            ingridientRemoved={this.removeIngridientHandler}
+            ingridientAdded={this.props.onIngridiendAdded}
+            ingridientRemoved={this.props.onIngridiendDeleted}
             disabled={disableInfo}
-            purchaseble={this.state.purchaseble}
+            purchaseble={this.updatePurchaseState(this.props.ings)}
             ordered={this.purchaseHandler}
-            price={this.state.totalPrice}
+            price={this.props.totalPrice}
+            isAuth={this.props.isAuth}
           />
         </Aux>
       )
       orderSummary = <OrderSummary
-      price={this.state.totalPrice}
+      price={this.props.totalPrice}
       purchaseCanclled={this.purchaseCancelHandler}
       purchaseContinue={this.purchaseContinueHandler}
-      ingridients={this.state.ingridients} />
+      ingridients={this.props.ings} />
     }
 
-    if(this.state.loading) {
-      orderSummary = <Spinner />
-    }
+    // if(this.state.loading) {
+    //   orderSummary = <Spinner />
+    // }
 
     return(
       <Aux>
@@ -177,4 +166,23 @@ class BurgerBulder extends Component {
   }
 }
 
-export default withErrorHandler(BurgerBulder, axios);
+const mapStateToProps = state => {
+  return {
+    ings: state.burgerBuilder.ingridients,
+    totalPrice: state.burgerBuilder.totalPrice,
+    error: state.burgerBuilder.error,
+    isAuth: state.authReducer.token !== null,
+  }
+}
+
+const mapDispatchToProps = dispatch => {
+  return {
+    onIngridiendAdded: (ingridientName) => dispatch(addIngridient(ingridientName)),
+    onIngridiendDeleted: (ingridientName) => dispatch(removeIngridient(ingridientName)),
+    onInitIngridients: () => dispatch(initIngridients()),
+    onInitPurchase: () => dispatch(purchaseInit()),
+    onSetAuthRedirectPath: (path) => dispatch(setAuthRedirectPatch(path))
+  }
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(withErrorHandler(BurgerBulder, axios));
